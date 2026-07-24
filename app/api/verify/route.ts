@@ -11,7 +11,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No media file provided." }, { status: 400 });
     }
 
-    const token = process.env.KAGGLE_API_TOKEN || process.env.KAGGLE_KEY || process.env.GEMINI_API_KEY;
+    const token = process.env.GEMINI_API_KEY;
     const factCheckApiKey = process.env.FACT_CHECK_API_KEY;
     const newsApiKey = process.env.NEWS_API_KEY;
 
@@ -173,14 +173,23 @@ Output STRICTLY as a JSON object matching this schema, with NO markdown formatti
       try {
         const genAI = new GoogleGenerativeAI(token);
         const model = genAI.getGenerativeModel({ 
-          model: "gemini-1.5-flash",
+          model: "gemini-flash-latest",
           generationConfig: {
             responseMimeType: "application/json",
             temperature: 0.2, // Low temp for more factual/consistent JSON
           }
         }); 
 
-        const result = await model.generateContent(prompt);
+        const arrayBuffer = await media.arrayBuffer();
+        const base64Data = Buffer.from(arrayBuffer).toString('base64');
+        const imagePart = {
+          inlineData: {
+            data: base64Data,
+            mimeType: media.type || "image/jpeg"
+          }
+        };
+
+        const result = await model.generateContent([prompt, imagePart]);
         const textResponse = result.response.text();
         console.log(`[API] MODEL RAW RESPONSE:\n${textResponse}\n`);
 
