@@ -30,6 +30,8 @@ import { UploadDropzone, type SelectedMedia } from "@/components/upload-dropzone
 import { PremiumCard } from "@/components/premium-card";
 import { AnalysisLoader } from "@/components/analysis-loader";
 import Folder from "@/components/ui/Folder";
+import { AnimatedCounter } from "@/components/ui/animated-counter";
+import { motion } from "motion/react";
 import type { Citation, NewAuditReport, Verdict } from "@/lib/types/firebase";
 
 type TabId = "upload" | "audio" | "url";
@@ -391,14 +393,16 @@ export function VerificationSandbox() {
                       <span className={cn("text-sm font-semibold", zoneStyle!.text)}>
                         {result.verdict.label}
                       </span>
-                      <span className={cn("font-mono text-2xl font-semibold tabular", zoneStyle!.text)}>
-                        {result.verdict.score}%
+                      <span className={cn("font-mono text-2xl font-semibold tabular flex items-center", zoneStyle!.text)}>
+                        <AnimatedCounter value={result.verdict.score} duration={1500} />%
                       </span>
                     </div>
-                    <div className="relative h-2 w-full overflow-hidden rounded-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 opacity-90">
-                      <div
+                    <div className="relative h-2 w-full rounded-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 opacity-90">
+                      <motion.div
+                        initial={{ left: "0%" }}
+                        animate={{ left: `calc(${result.verdict.score}% - 2px)` }}
+                        transition={{ duration: 1.5, ease: "easeOut" }}
                         className="absolute top-1/2 h-3.5 w-1 -translate-y-1/2 rounded-full bg-slate-900 shadow-[0_0_0_2px_white] dark:bg-white dark:shadow-[0_0_0_2px_theme(colors.slate.950)]"
-                        style={{ left: `calc(${result.verdict.score}% - 2px)` }}
                         aria-hidden
                       />
                     </div>

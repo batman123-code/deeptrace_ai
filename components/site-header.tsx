@@ -4,9 +4,14 @@ import CardNav from './CardNav';
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/context/auth-context";
 import { LogOut, User as UserIcon } from "lucide-react";
+import { motion, useScroll, useTransform } from "motion/react";
 
 export function SiteHeader() {
   const { userDetails, signOut } = useAuth();
+  const { scrollY } = useScroll();
+  
+  const bgOpacity = useTransform(scrollY, [0, 50], [0, 1]);
+  const shadowValue = useTransform(scrollY, [0, 50], ["none", "0 4px 6px -1px rgba(0,0,0,0.05)"]);
 
   const items = [
     {
@@ -40,12 +45,16 @@ export function SiteHeader() {
   ];
 
   return (
-    <header className="fixed top-0 z-50 w-full pt-4 pointer-events-none">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 pointer-events-auto">
+    <motion.header className="fixed top-[3px] z-[150] w-full pointer-events-none transition-all duration-300">
+      <motion.div 
+        className="absolute inset-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md pointer-events-auto border-b border-slate-200/50 dark:border-slate-800/50"
+        style={{ opacity: bgOpacity, boxShadow: shadowValue }}
+      />
+      <div className="relative pt-4 mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 pointer-events-auto">
         <div className="flex-1" />
         
         {/* User profile floating to the right */}
-        <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-800 p-1.5 rounded-full shadow-sm z-[100]">
+        <div className="flex items-center gap-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border border-slate-200 dark:border-slate-800 p-1.5 rounded-full shadow-sm z-[100]">
           {userDetails ? (
             <div className="flex items-center gap-3 pr-2">
               {userDetails.avatarUrl ? (
@@ -76,7 +85,7 @@ export function SiteHeader() {
           ) : (
             <a
               href="/login"
-              className="hidden text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100 sm:inline-flex px-3"
+              className="hidden text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100 sm:inline-flex px-3 transition-colors"
             >
               Sign In
             </a>
@@ -86,7 +95,7 @@ export function SiteHeader() {
       </div>
       
       {/* The island CardNav */}
-      <div className="pointer-events-auto">
+      <div className="pointer-events-auto relative mt-[-40px]">
         <CardNav
           items={items}
           baseColor="white"
@@ -96,6 +105,6 @@ export function SiteHeader() {
           ease="power3.out"
         />
       </div>
-    </header>
+    </motion.header>
   );
 }

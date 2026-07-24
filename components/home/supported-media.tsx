@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ImageIcon, AudioLines, Video, FileText } from "lucide-react";
 import ImageTrail from "@/components/ui/ImageTrail";
+import { ScrollReveal, StaggerReveal } from "@/components/ui/scroll-reveal";
 
 const MEDIA = [
   {
@@ -66,17 +67,17 @@ export function SupportedMedia() {
   return (
     <section className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden relative">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20 relative z-10">
-        <div className="max-w-2xl">
+        <ScrollReveal variant="fade-up" className="max-w-2xl">
           <p className="font-mono text-xs uppercase tracking-wide text-slate-500 dark:text-slate-500">
             Supported media
           </p>
           <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
             One engine, every format your team receives
           </h2>
-        </div>
+        </ScrollReveal>
 
         <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="grid grid-cols-2 gap-4 h-fit">
+          <StaggerReveal staggerDelay={0.15} className="grid grid-cols-2 gap-4 h-fit">
             {MEDIA.map((item, idx) => {
               const Icon = item.icon;
               const isActive = idx === activeIndex;
@@ -90,10 +91,10 @@ export function SupportedMedia() {
                       : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700"
                   }`}
                 >
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-md ${
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
                     isActive ? "bg-indigo-600 dark:bg-indigo-500" : "bg-indigo-600/10 dark:bg-indigo-400/10"
                   }`}>
-                    <Icon className={`h-4.5 w-4.5 ${isActive ? "text-white" : "text-indigo-600 dark:text-indigo-400"}`} strokeWidth={1.75} />
+                    <Icon className={`h-4.5 w-4.5 transition-colors ${isActive ? "text-white" : "text-indigo-600 dark:text-indigo-400"}`} strokeWidth={1.75} />
                   </div>
                   <h3 className="mt-4 text-sm font-semibold text-slate-900 dark:text-slate-100">
                     {item.title}
@@ -104,11 +105,11 @@ export function SupportedMedia() {
                 </div>
               );
             })}
-          </div>
+          </StaggerReveal>
 
-          <div className="hidden lg:block relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 overflow-hidden shadow-inner h-[500px]">
+          <ScrollReveal variant="fade-left" delay={0.3} className="hidden lg:block relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 overflow-hidden shadow-inner h-[500px]">
             <div className="absolute top-4 left-4 z-[110]">
-              <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-900/80 px-2 py-1 rounded backdrop-blur-sm">
+              <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-900/80 px-2 py-1 rounded backdrop-blur-sm shadow-sm transition-all hover:bg-white dark:hover:bg-slate-800">
                 Interactive: Move your mouse
               </span>
             </div>
@@ -118,7 +119,7 @@ export function SupportedMedia() {
               items={activeMedia.images}
               variant={activeMedia.variant}
             />
-          </div>
+          </ScrollReveal>
         </div>
       </div>
     </section>

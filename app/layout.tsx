@@ -5,6 +5,8 @@ import { AuthProvider } from "@/context/auth-context";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { SplashScreen } from "@/components/splash-screen";
+import { SmoothScrolling } from "@/components/smooth-scrolling";
+import { ScrollProgress } from "@/components/ui/scroll-progress";
 import "./globals.css";
 
 const display = Space_Grotesk({
@@ -37,10 +39,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${display.variable} ${sans.variable} ${mono.variable} font-sans bg-slate-50 text-slate-900`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <AuthProvider>
-            <SplashScreen />
-            <SiteHeader />
-            {children}
-            <SiteFooter />
+            <SmoothScrolling>
+              <ScrollProgress />
+              <SplashScreen />
+              <SiteHeader />
+              {children}
+              <SiteFooter />
+            </SmoothScrolling>
           </AuthProvider>
         </ThemeProvider>
       </body>
