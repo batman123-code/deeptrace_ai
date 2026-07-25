@@ -31,7 +31,7 @@ export function AnimatedCounter({
   });
 
   // useTransform maps the spring value to a formatted string
-  const displayValue = useTransform(springValue, (current) => {
+  const displayValue = useTransform(springValue, (current: number) => {
     return `${prefix}${current.toFixed(decimalPlaces)}${suffix}`;
   });
 

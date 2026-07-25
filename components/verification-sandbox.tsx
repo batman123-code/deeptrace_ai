@@ -10,22 +10,21 @@ import {
   Globe,
   Cpu,
   Clock,
-  Radio,
   Loader2,
-  Save,
   ScanSearch,
   Newspaper,
   FileJson,
   ShieldCheck,
   ShieldAlert,
-  ExternalLink
+  ExternalLink,
+  Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { saveAuditReport } from "@/lib/firebase/db";
 import { uploadVerificationMedia } from "@/lib/firebase/storage";
-import { formatBytes } from "@/lib/media";
+import { formatBytes, validateUrl, validateAudioFile } from "@/lib/media";
 import { UploadDropzone, type SelectedMedia } from "@/components/upload-dropzone";
 import { PremiumCard } from "@/components/premium-card";
 import { AnalysisLoader } from "@/components/analysis-loader";
@@ -98,20 +97,14 @@ export function VerificationSandbox() {
   const [activeResultTab, setActiveResultTab] = useState<"overview" | "news" | "factcheck">("overview");
 
   const [media, setMedia] = useState<SelectedMedia | null>(null);
+  const [urlInput, setUrlInput] = useState("");
   const [claimedContext, setClaimedContext] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
 
   async function persistAudit(audit: NewAuditReport, file?: File) {
-    if (!isFirebaseConfigured) {
-      setSaveState("idle");
-      return;
-    }
-    if (!userDetails) {
-      setSaveState("signed-out");
-      return;
-    }
+    if (!isFirebaseConfigured || !userDetails) return;
 
     setSaveState("saving");
     try {
@@ -128,10 +121,93 @@ export function VerificationSandbox() {
   }
 
   async function runVerification() {
-    if (!media || analyzing) return;
+    setAnalysisError(null);
+
+    if (activeTab === "url") {
+      const urlCheck = validateUrl(urlInput);
+      if (!urlCheck.isValid || !urlCheck.formattedUrl) {
+        setAnalysisError(urlCheck.error || "Please enter a valid URL.");
+        return;
+      }
+
+      setAnalyzing(true);
+      setSaveState("idle");
+      setActiveResultTab("overview");
+
+      try {
+        const response = await fetch("/api/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: urlCheck.formattedUrl, claimedContext }),
+        });
+
+        const payload = await response.json();
+        if (!response.ok) {
+          setAnalysisError(payload?.error || "URL verification failed. Please try again.");
+          setResult(null);
+          return;
+        }
+
+        const fa = payload.forensicAnalysis || payload;
+        const meta = VERDICT_META[fa.verdict] ?? VERDICT_META.CONTEXT_MISMATCH;
+        const citations: Citation[] = fa.citations ?? [];
+
+        const liveResult: Result = {
+          origin: "live",
+          mediaCaption: urlCheck.formattedUrl,
+          mediaSub: fa.mediaDescription || "Webpage Analysis",
+          verdict: { label: meta.label, score: fa.confidenceScore ?? 0, zone: meta.zone },
+          deepfakeProbability: fa.deepfakeProbability,
+          summary: fa.summary,
+          claims: fa.claims ?? [],
+          sources: citations.map((c) => ({
+            domain: c.source_name,
+            trust: c.trust_score,
+            date: "cited by model",
+          })),
+          telemetry: {
+            latency: fa.latencyMs ? `${fa.latencyMs}ms` : "—",
+            model: fa.model ?? "Gemma 4",
+          },
+          newsArticles: payload.newsArticles ?? [],
+          factCheckClaims: payload.factCheckClaims ?? [],
+          rawPayload: payload,
+        };
+
+        setResult(liveResult);
+
+        void persistAudit({
+          claimText: claimedContext || urlCheck.formattedUrl,
+          verdict: (fa.verdict as Verdict) || "CONTEXT_MISMATCH",
+          confidenceScore: fa.confidenceScore ?? 0,
+          summary: fa.summary ?? "",
+          citations,
+        });
+      } catch (err) {
+        console.error("URL Verification request error:", err);
+        setAnalysisError("Unable to verify URL. Please check network connection and try again.");
+        setResult(null);
+      } finally {
+        setAnalyzing(false);
+      }
+      return;
+    }
+
+    // Audio or Upload File Verification
+    if (!media) {
+      setAnalysisError(`Please select a ${activeTab === "audio" ? "valid audio" : "photo or video"} file to verify.`);
+      return;
+    }
+
+    if (activeTab === "audio") {
+      const audioProblem = validateAudioFile(media.file);
+      if (audioProblem) {
+        setAnalysisError(audioProblem);
+        return;
+      }
+    }
 
     setAnalyzing(true);
-    setAnalysisError(null);
     setSaveState("idle");
     setActiveResultTab("overview");
 
@@ -139,25 +215,25 @@ export function VerificationSandbox() {
       const body = new FormData();
       body.append("media", media.file);
       body.append("claimedContext", claimedContext);
+      body.append("type", activeTab);
 
       const response = await fetch("/api/verify", { method: "POST", body });
       const payload = await response.json();
 
       if (!response.ok) {
-        setAnalysisError(payload?.error ?? "Verification failed. Try again.");
+        setAnalysisError(payload?.error ?? "Verification failed. Please try again.");
         setResult(null);
         return;
       }
 
-      // New Payload Structure
-      const fa = payload.forensicAnalysis || payload; // fallback for older mock
+      const fa = payload.forensicAnalysis || payload;
       const meta = VERDICT_META[fa.verdict] ?? VERDICT_META.CONTEXT_MISMATCH;
       const citations: Citation[] = fa.citations ?? [];
 
       const live: Result = {
         origin: "live",
         mediaCaption: media.file.name,
-        mediaSub: fa.mediaDescription ?? `${formatBytes(media.file.size)} · ${media.file.type}`,
+        mediaSub: fa.mediaDescription ?? `${formatBytes(media.file.size)} · ${media.file.type || activeTab.toUpperCase()}`,
         verdict: { label: meta.label, score: fa.confidenceScore ?? 0, zone: meta.zone },
         deepfakeProbability: fa.deepfakeProbability,
         summary: fa.summary,
@@ -169,18 +245,18 @@ export function VerificationSandbox() {
         })),
         telemetry: {
           latency: fa.latencyMs ? `${fa.latencyMs}ms` : "—",
-          model: fa.model ?? "Gemini",
+          model: fa.model ?? "Gemma 4",
         },
         newsArticles: payload.newsArticles ?? [],
         factCheckClaims: payload.factCheckClaims ?? [],
-        rawPayload: payload
+        rawPayload: payload,
       };
 
       setResult(live);
 
       void persistAudit(
         {
-          claimText: claimedContext || "(no claim supplied)",
+          claimText: claimedContext || media.file.name,
           verdict: (fa.verdict as Verdict) || "CONTEXT_MISMATCH",
           confidenceScore: fa.confidenceScore ?? 0,
           summary: fa.summary ?? "",
@@ -190,7 +266,7 @@ export function VerificationSandbox() {
       );
     } catch (err) {
       console.error("Verification request failed:", err);
-      setAnalysisError("Couldn't reach the verification service. Check your connection and try again.");
+      setAnalysisError("Couldn't reach the verification service. Check connection and try again.");
       setResult(null);
     } finally {
       setAnalyzing(false);
@@ -215,7 +291,10 @@ export function VerificationSandbox() {
                 type="button"
                 role="tab"
                 aria-selected={selected}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setAnalysisError(null);
+                }}
                 className={cn(
                   "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                   selected
@@ -231,9 +310,76 @@ export function VerificationSandbox() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,300px)_1fr]">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,320px)_1fr]">
         <div className="border-b border-slate-200 p-4 dark:border-slate-800 lg:border-b-0 lg:border-r flex flex-col h-full">
-          {activeTab === "upload" ? (
+          {activeTab === "url" ? (
+            <>
+              <div className="space-y-3 flex-1">
+                <label htmlFor="url-input" className="block text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  Webpage / News Article URL
+                </label>
+                <div className="relative">
+                  <Globe className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                  <input
+                    id="url-input"
+                    type="url"
+                    value={urlInput}
+                    onChange={(e) => {
+                      setUrlInput(e.target.value);
+                      setAnalysisError(null);
+                    }}
+                    disabled={analyzing}
+                    placeholder="https://news.example.com/article"
+                    className="w-full rounded-md border border-slate-300 bg-white pl-8 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Supports news articles, blog posts, press releases, and public web pages (http:// or https://).
+                </p>
+
+                <div className="pt-2">
+                  <label htmlFor="url-context" className="block text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                    Additional Context / Claim <span className="font-normal text-slate-400">(optional)</span>
+                  </label>
+                  <textarea
+                    id="url-context"
+                    rows={3}
+                    value={claimedContext}
+                    onChange={(e) => setClaimedContext(e.target.value)}
+                    disabled={analyzing}
+                    placeholder="e.g. Verify if this news report is accurate"
+                    className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={runVerification}
+                disabled={!urlInput.trim() || analyzing}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2.5 text-sm font-medium text-slate-50 transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+              >
+                {analyzing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Fetching & Analyzing Webpage...
+                  </>
+                ) : (
+                  <>
+                    <ScanSearch className="h-4 w-4" />
+                    Verify Webpage URL
+                  </>
+                )}
+              </button>
+
+              {analysisError && (
+                <p className="mt-2 flex items-start gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-2.5 py-2 text-[11px] leading-relaxed text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-400">
+                  <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
+                  {analysisError}
+                </p>
+              )}
+            </>
+          ) : (
             <>
               <UploadDropzone
                 selected={media}
@@ -253,7 +399,7 @@ export function VerificationSandbox() {
                   htmlFor="claimed-context"
                   className="block text-[11px] font-medium text-slate-700 dark:text-slate-300"
                 >
-                  What is this media claimed to show?{" "}
+                  {activeTab === "audio" ? "What is this audio claimed to state?" : "What is this media claimed to show?"}{" "}
                   <span className="font-normal text-slate-400 dark:text-slate-600">(optional)</span>
                 </label>
                 <textarea
@@ -262,7 +408,7 @@ export function VerificationSandbox() {
                   value={claimedContext}
                   onChange={(e) => setClaimedContext(e.target.value)}
                   disabled={analyzing}
-                  placeholder="e.g. Protest in Paris last night"
+                  placeholder={activeTab === "audio" ? "e.g. Leaked speech audio clip" : "e.g. Protest in Paris last night"}
                   className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </div>
@@ -276,7 +422,7 @@ export function VerificationSandbox() {
                 {analyzing ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Analyzing Data...
+                    Analyzing {activeTab === "audio" ? "Audio" : "Media"}...
                   </>
                 ) : (
                   <>
@@ -293,26 +439,6 @@ export function VerificationSandbox() {
                 </p>
               )}
             </>
-          ) : (
-            <div className="flex aspect-square w-full flex-col items-center justify-center gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-center dark:border-slate-700 dark:bg-slate-950">
-              {activeTab === "audio" ? (
-                <AudioLines className="h-8 w-8 text-slate-400 dark:text-slate-600" />
-              ) : (
-                <Link2 className="h-8 w-8 text-slate-400 dark:text-slate-600" />
-              )}
-              <div>
-                <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                  {activeTab === "audio" ? "Audio verification" : "URL verification"}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveTab("upload")}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-[11px] text-slate-700 hover:border-slate-400 dark:border-slate-700 dark:text-slate-300"
-              >
-                Switch to upload
-              </button>
-            </div>
           )}
         </div>
 
@@ -327,7 +453,7 @@ export function VerificationSandbox() {
                   <div className="mb-6 flex items-center justify-center">
                     <Folder
                       size={1.5}
-                      color="#3b82f6" /* Tailwind blue-500 */
+                      color="#3b82f6"
                       items={[
                         <div key="1" className="w-full h-full flex flex-col p-2 gap-1 opacity-50">
                           <div className="h-1 bg-slate-300 rounded w-full"></div>
@@ -350,7 +476,7 @@ export function VerificationSandbox() {
                       No verification yet
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-500">
-                      Upload a photo or video and run a verification to see a comprehensive forensic report.
+                      Submit an image, video, audio clip, or webpage URL to generate a comprehensive forensic report.
                     </p>
                   </div>
                 </>
@@ -418,6 +544,27 @@ export function VerificationSandbox() {
                           {result.summary}
                         </p>
                       </PremiumCard>
+                    )}
+
+                    {/* Claims breakdown */}
+                    {result.claims && result.claims.length > 0 && (
+                      <div className="space-y-3 bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                          <Info className="w-4 h-4 text-purple-500" /> Claim Breakdown
+                        </h4>
+                        {result.claims.map((claim, idx) => (
+                          <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between gap-3 text-xs">
+                            <div>
+                              <p className="font-semibold text-slate-700 dark:text-slate-300">{claim.field}</p>
+                              <p className="text-slate-600 dark:text-slate-400 mt-0.5"><span className="font-medium">Claimed:</span> {claim.claimed}</p>
+                              <p className="text-slate-500 mt-0.5"><span className="font-medium">Extracted:</span> {claim.extracted}</p>
+                            </div>
+                            <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold h-fit uppercase", claim.status === "match" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
+                              {claim.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     )}
 
                     {/* Telemetry info */}

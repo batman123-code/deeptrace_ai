@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { UploadCloud, X, FileWarning, ImageIcon, Video } from "lucide-react";
+import { UploadCloud, X, FileWarning, ImageIcon, Video, AudioLines } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ACCEPTED_TYPES, formatBytes, isVideo, validateMediaFile } from "@/lib/media";
+import { ACCEPTED_TYPES, formatBytes, isVideo, isAudio, validateMediaFile } from "@/lib/media";
 
 export type SelectedMedia = {
   file: File;
@@ -25,7 +25,6 @@ export function UploadDropzone({
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Revoke the object URL when the preview goes away, so blobs aren't leaked.
   useEffect(() => {
     const url = selected?.previewUrl;
     return () => {
@@ -49,18 +48,24 @@ export function UploadDropzone({
 
   if (selected) {
     const video = isVideo(selected.file.type);
+    const audio = isAudio(selected.file.type, selected.file.name);
+
     return (
       <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
-        <div className="relative overflow-hidden rounded border border-slate-200 bg-slate-900 dark:border-slate-800">
+        <div className="relative overflow-hidden rounded border border-slate-200 bg-slate-900 dark:border-slate-800 p-2 min-h-[160px] flex items-center justify-center">
           {video ? (
-            <video src={selected.previewUrl} controls className="aspect-square w-full object-contain" />
+            <video src={selected.previewUrl} controls className="aspect-square w-full object-contain max-h-[220px]" />
+          ) : audio ? (
+            <div className="w-full flex flex-col items-center justify-center p-4 space-y-3">
+              <AudioLines className="h-10 w-10 text-blue-400 animate-pulse" />
+              <audio src={selected.previewUrl} controls className="w-full max-w-xs" />
+            </div>
           ) : (
-            // Object URL of a user-selected local file — next/image can't optimize a blob.
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={selected.previewUrl}
               alt="Selected media preview"
-              className="aspect-square w-full object-contain"
+              className="aspect-square w-full object-contain max-h-[220px]"
             />
           )}
           <button
@@ -77,6 +82,8 @@ export function UploadDropzone({
         <div className="mt-3 flex items-start gap-2">
           {video ? (
             <Video className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-600" />
+          ) : audio ? (
+            <AudioLines className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-600" />
           ) : (
             <ImageIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-600" />
           )}
@@ -85,7 +92,7 @@ export function UploadDropzone({
               {selected.file.name}
             </p>
             <p className="mt-0.5 font-mono text-[10px] text-slate-400 dark:text-slate-600">
-              {formatBytes(selected.file.size)} · {selected.file.type}
+              {formatBytes(selected.file.size)} · {selected.file.type || "audio/media"}
             </p>
           </div>
         </div>
@@ -128,12 +135,12 @@ export function UploadDropzone({
         <UploadCloud className="h-8 w-8 text-slate-400 dark:text-slate-600" strokeWidth={1.5} />
         <div>
           <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
-            Drop a photo or video here
+            Drop a file here
           </p>
           <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-500">or click to browse</p>
         </div>
         <p className="font-mono text-[10px] text-slate-400 dark:text-slate-600">
-          JPEG · PNG · WebP · MP4 · MOV — up to 15 MB
+          Photo · Video · Audio (MP3, WAV, M4A, OGG) — up to 15 MB
         </p>
       </div>
 
@@ -144,7 +151,6 @@ export function UploadDropzone({
         className="sr-only"
         onChange={(e) => {
           accept(e.target.files?.[0]);
-          // Reset so picking the same file twice still fires a change event.
           e.target.value = "";
         }}
       />
@@ -158,3 +164,4 @@ export function UploadDropzone({
     </div>
   );
 }
+

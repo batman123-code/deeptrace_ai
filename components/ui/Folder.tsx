@@ -43,22 +43,22 @@ const Folder = ({ color = '#5227FF', size = 1, items = [], className = '' }: any
     }
   };
 
-  const handlePaperMouseMove = (e: any, index: number) => {
+  const handlePaperMouseMove = (e: React.MouseEvent<HTMLDivElement>, index: number) => {
     if (!open) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
     const offsetX = (e.clientX - centerX) * 0.15;
     const offsetY = (e.clientY - centerY) * 0.15;
-    setPaperOffsets(prev => {
+    setPaperOffsets((prev: any[]) => {
       const newOffsets = [...prev];
       newOffsets[index] = { x: offsetX, y: offsetY };
       return newOffsets;
     });
   };
 
-  const handlePaperMouseLeave = (e: any, index: number) => {
-    setPaperOffsets(prev => {
+  const handlePaperMouseLeave = (e: React.MouseEvent<HTMLDivElement>, index: number) => {
+    setPaperOffsets((prev: any[]) => {
       const newOffsets = [...prev];
       newOffsets[index] = { x: 0, y: 0 };
       return newOffsets;
@@ -82,7 +82,7 @@ const Folder = ({ color = '#5227FF', size = 1, items = [], className = '' }: any
         className={folderClassName}
         style={folderStyle}
         onClick={handleClick}
-        onKeyDown={e => {
+        onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             handleClick();

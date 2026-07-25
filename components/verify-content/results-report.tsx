@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShieldAlert, ShieldCheck, Search, Image as ImageIcon, ExternalLink, Info, Newspaper, CheckCircle2, FileJson } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, Search, Image as ImageIcon, ExternalLink, Info, Newspaper, CheckCircle2, FileJson, AudioLines, Globe } from 'lucide-react';
+import { isAudio } from '@/lib/media';
 
 interface Claim {
   field: string;
@@ -38,8 +39,9 @@ interface FactCheckClaim {
 }
 
 interface ResultsReportProps {
-  imageFile: File | null;
-  context: string;
+  imageFile?: File | null;
+  url?: string | null;
+  context?: string;
   payload?: {
     forensicAnalysis?: ForensicAnalysis;
     newsArticles?: NewsArticle[];
@@ -47,9 +49,10 @@ interface ResultsReportProps {
   };
 }
 
-export function ResultsReport({ imageFile, context, payload }: ResultsReportProps) {
+export function ResultsReport({ imageFile, url, context, payload }: ResultsReportProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'news' | 'factcheck'>('overview');
-  const imageUrl = imageFile ? URL.createObjectURL(imageFile) : null;
+  const mediaUrl = imageFile ? URL.createObjectURL(imageFile) : null;
+  const isAudioFile = imageFile ? isAudio(imageFile.type, imageFile.name) : false;
 
   if (!payload || !payload.forensicAnalysis) {
     return <div className="text-center text-slate-500 py-12">No verification data available.</div>;
@@ -82,14 +85,14 @@ export function ResultsReport({ imageFile, context, payload }: ResultsReportProp
           onClick={() => setActiveTab('news')}
           className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'news' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
         >
-          <div className="flex items-center gap-2"><Newspaper className="w-4 h-4" /> Related News</div>
+          <div className="flex items-center gap-2"><Newspaper className="w-4 h-4" /> Related News ({newsArticles.length})</div>
           {activeTab === 'news' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full" />}
         </button>
         <button
           onClick={() => setActiveTab('factcheck')}
           className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === 'factcheck' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
         >
-          <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Fact Checks</div>
+          <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Fact Checks ({factCheckClaims.length})</div>
           {activeTab === 'factcheck' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full" />}
         </button>
       </div>
@@ -117,7 +120,7 @@ export function ResultsReport({ imageFile, context, payload }: ResultsReportProp
                   </div>
                 </div>
                 <div className="p-6 bg-white">
-                  <p className="text-slate-700">{forensicAnalysis.summary}</p>
+                  <p className="text-slate-700 leading-relaxed">{forensicAnalysis.summary}</p>
                 </div>
               </div>
 
@@ -150,18 +153,36 @@ export function ResultsReport({ imageFile, context, payload }: ResultsReportProp
             </div>
 
             <div className="space-y-6">
-              {/* Image Thumbnail */}
+              {/* Media Thumbnail */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
                 <h4 className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-slate-500" />
-                  Analyzed Image
-                </h4>
-                <div className="aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200 relative">
-                  {imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={imageUrl} alt="Analyzed content" className="w-full h-full object-cover" />
+                  {isAudioFile ? (
+                    <AudioLines className="w-4 h-4 text-blue-500" />
+                  ) : url ? (
+                    <Globe className="w-4 h-4 text-blue-500" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-400">No Image</div>
+                    <ImageIcon className="w-4 h-4 text-slate-500" />
+                  )}
+                  {isAudioFile ? 'Analyzed Audio' : url ? 'Analyzed Webpage' : 'Analyzed Image'}
+                </h4>
+                <div className="aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200 relative flex items-center justify-center p-3">
+                  {isAudioFile && mediaUrl ? (
+                    <div className="flex flex-col items-center gap-3 w-full">
+                      <AudioLines className="w-12 h-12 text-blue-500 animate-pulse" />
+                      <audio controls src={mediaUrl} className="w-full" />
+                    </div>
+                  ) : url ? (
+                    <div className="text-center p-4">
+                      <Globe className="w-12 h-12 text-blue-500 mx-auto mb-2" />
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline break-all font-mono">
+                        {url}
+                      </a>
+                    </div>
+                  ) : mediaUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={mediaUrl} alt="Analyzed content" className="w-full h-full object-cover rounded-md" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-400">No Preview</div>
                   )}
                 </div>
                 <p className="text-xs text-slate-500 mt-2 truncate text-center">
@@ -191,8 +212,8 @@ export function ResultsReport({ imageFile, context, payload }: ResultsReportProp
                         {new Date(article.publishedAt).toLocaleDateString()}
                       </span>
                     </div>
-                    <a href={article.url} target="_blank" rel="noopener noreferrer" className="text-lg font-bold text-slate-800 hover:text-blue-600 transition-colors">
-                      {article.title}
+                    <a href={article.url} target="_blank" rel="noopener noreferrer" className="text-lg font-bold text-slate-800 hover:text-blue-600 transition-colors flex items-center gap-2">
+                      {article.title} <ExternalLink className="w-4 h-4 opacity-50 shrink-0" />
                     </a>
                     <p className="text-sm text-slate-600 mt-2 line-clamp-2">{article.snippet}</p>
                   </div>

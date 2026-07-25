@@ -30,8 +30,10 @@ function requireDb() {
 }
 
 /** Firestore returns Timestamps; the app works in Dates. */
-function toDate(value: unknown): Date | string {
-  if (value instanceof Timestamp) return value.toDate();
+function toDate(value: any): Date | string {
+  if (value && typeof value === "object" && typeof value.toDate === "function") {
+    return value.toDate();
+  }
   if (value instanceof Date) return value;
   if (typeof value === "string") return value;
   return new Date();
@@ -121,7 +123,7 @@ export async function getUserAuditHistory(
 
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((entry) => {
+  return snapshot.docs.map((entry: any) => {
     const data = entry.data() as DocumentData;
     return {
       id: entry.id,

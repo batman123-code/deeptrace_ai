@@ -78,7 +78,7 @@ class ImageTrailVariant1 {
   constructor(container: HTMLElement) {
     this.container = container;
     this.DOM = { el: container };
-    this.images = Array.from(this.DOM.el.querySelectorAll('.content__img')).map(img => new ImageItem(img as HTMLElement));
+    this.images = Array.from(this.DOM.el.querySelectorAll('.content__img')).map((img: Element) => new ImageItem(img as HTMLElement));
     this.imagesTotal = this.images.length;
     this.imgPosition = 0;
     this.zIndexVal = 1;
@@ -199,7 +199,7 @@ class ImageTrailVariant2 {
   constructor(container: HTMLElement) {
     this.container = container;
     this.DOM = { el: container };
-    this.images = Array.from(container.querySelectorAll('.content__img')).map(img => new ImageItem(img as HTMLElement));
+    this.images = Array.from(container.querySelectorAll('.content__img')).map((img: Element) => new ImageItem(img as HTMLElement));
     this.imagesTotal = this.images.length;
     this.imgPosition = 0;
     this.zIndexVal = 1;

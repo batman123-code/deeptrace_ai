@@ -10,7 +10,7 @@ export function SmoothScrolling({ children }: { children: ReactNode }) {
     // Only initialize lenis on the client to avoid SSR issues
     const lenisInstance = new Lenis({
       duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // smooth easing
+      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // smooth easing
       orientation: "vertical",
       gestureOrientation: "vertical",
       smoothWheel: true,

@@ -179,7 +179,7 @@ const OptionWheel = ({
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    const onWheel = (e: any) => {
+    const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const cfg = cfgRef.current;
       const delta = e.deltaMode === 1 ? e.deltaY * 24 : e.deltaY;
@@ -195,7 +195,7 @@ const OptionWheel = ({
     };
   }, [applyTarget]);
 
-  const handlePointerDown = useCallback((e: any) => {
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!cfgRef.current.draggable) return;
     dragRef.current = { y: e.clientY, start: targetRef.current, id: e.pointerId };
     dragMovedRef.current = false;
@@ -203,7 +203,7 @@ const OptionWheel = ({
   }, []);
 
   const handlePointerMove = useCallback(
-    (e: any) => {
+    (e: React.PointerEvent<HTMLDivElement>) => {
       const drag = dragRef.current;
       if (!drag) return;
       const dy = e.clientY - drag.y;
@@ -239,7 +239,7 @@ const OptionWheel = ({
   );
 
   const handleKeyDown = useCallback(
-    (e: any) => {
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
       let delta = null;
       if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') delta = -1;
       else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') delta = 1;

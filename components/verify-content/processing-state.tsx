@@ -3,36 +3,59 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, Loader2, Search, BrainCircuit, FileSearch, ShieldCheck } from 'lucide-react';
 
-const steps = [
-  { id: 'uploading', label: 'Uploading image...', icon: FileSearch },
-  { id: 'preparing', label: 'Preparing analysis...', icon: Search },
-  { id: 'analyzing', label: 'Gemma 4 analyzing visual content...', icon: BrainCircuit },
-  { id: 'extracting', label: 'Extracting claims...', icon: FileSearch },
-  { id: 'retrieving', label: 'Retrieving supporting evidence...', icon: Search },
-  { id: 'generating', label: 'Generating investigation report...', icon: ShieldCheck },
-];
-
 interface ProcessingStateProps {
+  type?: 'image' | 'audio' | 'url';
   onComplete: () => void;
 }
 
-export function ProcessingState({ onComplete }: ProcessingStateProps) {
+export function ProcessingState({ type = 'image', onComplete }: ProcessingStateProps) {
   const [currentStep, setCurrentStep] = useState(0);
+
+  const getSteps = () => {
+    if (type === 'url') {
+      return [
+        { id: 'validating', label: 'Validating & connecting to URL...', icon: FileSearch },
+        { id: 'fetching', label: 'Fetching webpage & extracting text content...', icon: Search },
+        { id: 'analyzing', label: 'Gemma 4 analyzing article claims & sources...', icon: BrainCircuit },
+        { id: 'extracting', label: 'Extracting key claims...', icon: FileSearch },
+        { id: 'retrieving', label: 'Retrieving supporting evidence (Fact Check & News)...', icon: Search },
+        { id: 'generating', label: 'Generating investigation report...', icon: ShieldCheck },
+      ];
+    }
+    if (type === 'audio') {
+      return [
+        { id: 'uploading', label: 'Uploading audio file...', icon: FileSearch },
+        { id: 'preparing', label: 'Preparing audio spectrum & transcription...', icon: Search },
+        { id: 'analyzing', label: 'Gemma 4 analyzing audio authenticity & claims...', icon: BrainCircuit },
+        { id: 'extracting', label: 'Extracting spoken claims...', icon: FileSearch },
+        { id: 'retrieving', label: 'Retrieving supporting evidence...', icon: Search },
+        { id: 'generating', label: 'Generating investigation report...', icon: ShieldCheck },
+      ];
+    }
+    return [
+      { id: 'uploading', label: 'Uploading media file...', icon: FileSearch },
+      { id: 'preparing', label: 'Preparing forensic analysis...', icon: Search },
+      { id: 'analyzing', label: 'Gemma 4 analyzing visual content...', icon: BrainCircuit },
+      { id: 'extracting', label: 'Extracting claims...', icon: FileSearch },
+      { id: 'retrieving', label: 'Retrieving supporting evidence...', icon: Search },
+      { id: 'generating', label: 'Generating investigation report...', icon: ShieldCheck },
+    ];
+  };
+
+  const steps = getSteps();
 
   useEffect(() => {
     if (currentStep >= steps.length) {
-      // Small delay before completing to let user see the final step checkmark
-      const timer = setTimeout(onComplete, 800);
+      const timer = setTimeout(onComplete, 400);
       return () => clearTimeout(timer);
     }
 
-    // Simulate progress sequence
     const timer = setTimeout(() => {
       setCurrentStep(prev => prev + 1);
-    }, 1500 + Math.random() * 1000); // Random duration between 1.5s and 2.5s per step
+    }, 600 + Math.random() * 400);
 
     return () => clearTimeout(timer);
-  }, [currentStep, onComplete]);
+  }, [currentStep, steps.length, onComplete]);
 
   return (
     <div className="w-full max-w-2xl mx-auto my-12 bg-white border border-slate-200 rounded-xl shadow-sm p-8">
@@ -41,8 +64,7 @@ export function ProcessingState({ onComplete }: ProcessingStateProps) {
         {steps.map((step, index) => {
           const isActive = index === currentStep;
           const isCompleted = index < currentStep;
-          const isPending = index > currentStep;
-          
+
           const Icon = step.icon;
 
           return (
